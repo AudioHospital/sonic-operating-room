@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sonic Operating Room — Audio Hospital × Frequency Oasis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #8b0000;
+    --red-bright: #ff3333;
+    --red-glow: #ff000066;
+    --gold: #c9a227;
+    --gold-dim: #c9a22744;
+    --cyan: #00ffff;
+    --purple: #aa33ff;
+    --green: #00ff66;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── CANVAS ── */
+  #canvas-container {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+  #three-canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* ── CRT OVERLAY ── */
+  #crt-overlay {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    animation: scanlines 6s linear infinite;
+  }
+  @keyframes scanlines {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
+
+  /* ── VIGNETTE ── */
+  #vignette {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.75) 100%);
+  }
+
+  /* ── UI LAYER ── */
+  #ui-layer {
+    position: fixed; inset: 0; z-index: 10;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #top-bar {
+    pointer-events: all;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 7px 14px;
+    background: rgba(0,0,0,0.88);
+    border-bottom: 1px solid var(--red);
+    backdrop-filter: blur(10px);
+  }
+
+  .brand-block { display: flex; flex-direction: column; gap: 1px; }
+  .logo-ah {
+    font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 900;
+    color: var(--red); text-shadow: 0 0 12px var(--red-glow); letter-spacing: 2px;
+  }
+  .logo-fo {
+    font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+    color: var(--gold); letter-spacing: 1.5px;
+  }
+  .sep { color: #2a2a2a; font-size: 18px; }
+
+  .btn {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    padding: 5px 11px; background: transparent; border: 1px solid;
+    cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-red  { border-color: var(--red); color: var(--red-bright); }
+  .btn-red:hover  { background: rgba(139,0,0,0.25); box-shadow: 0 0 12px rgba(255,0,0,0.2); }
+  .btn-gold { border-color: var(--gold); color: var(--gold); }
+  .btn-gold:hover { background: rgba(201,162,39,0.15); }
+  .btn-active { background: rgba(139,0,0,0.4) !important; box-shadow: 0 0 18px rgba(255,0,0,0.35) !important; }
+
+  .meters-group {
+    display: flex; align-items: center; gap: 14px; margin-left: auto;
+  }
+  .meter-unit { display: flex; flex-direction: column; gap: 3px; }
+  .meter-label { font-size: 7px; color: #555; letter-spacing: 1px; }
+  .meter-bar {
+    width: 70px; height: 4px; background: #0d0000;
+    border: 1px solid #1a0000; border-radius: 2px; overflow: hidden;
+  }
+  .meter-fill { height: 100%; border-radius: 2px; transition: width 0.1s; }
+  .mf-health { background: linear-gradient(90deg, #00ff66, #c9a227, #ff3333); }
+  .mf-width  { background: linear-gradient(90deg, rgba(201,162,39,0.4), #c9a227); }
+  .mf-cpu    { background: linear-gradient(90deg, rgba(0,255,102,0.5), #ff3333); }
+  .meter-val { font-size: 8px; color: var(--gold); min-width: 50px; text-align: right; }
+
+  /* ── MAIN AREA ── */
+  #main-area {
+    display: flex; flex: 1; overflow: hidden; pointer-events: none;
+  }
+
+  /* ── SIDE PANELS ── */
+  .side-panel {
+    pointer-events: all;
+    width: 210px; flex-shrink: 0;
+    background: rgba(0,0,0,0.84);
+    backdrop-filter: blur(12px);
+    padding: 12px 10px;
+    display: flex; flex-direction: column; gap: 7px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #1a0000 transparent;
+  }
+  #left-panel  { border-right: 1px solid var(--red); }
+  #right-panel { border-left: 1px solid var(--red); }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8px;
+    letter-spacing: 3px; color: var(--red);
+    text-shadow: 0 0 8px rgba(255,0,0,0.35);
+    border-bottom: 1px solid rgba(139,0,0,0.3);
+    padding-bottom: 5px; margin-bottom: 3px;
+  }
+
+  .diag-item { display: flex; flex-direction: column; gap: 3px; }
+  .diag-row  { display: flex; justify-content: space-between; align-items: center; }
+  .diag-name { font-size: 7px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+  .diag-pct  { font-size: 8px; min-width: 30px; text-align: right; }
+  .diag-track { width: 100%; height: 3px; background: #0d0000; border-radius: 2px; overflow: hidden; }
+  .diag-fill  { height: 100%; border-radius: 2px; transition: width 0.12s ease; }
+  .df-red    { background: var(--red-bright); box-shadow: 0 0 4px var(--red-bright); }
+  .df-yellow { background: #ffaa00; box-shadow: 0 0 4px #ffaa00; }
+  .df-purple { background: var(--purple); box-shadow: 0 0 4px var(--purple); }
+  .df-green  { background: var(--green); box-shadow: 0 0 4px var(--green); }
+
+  .signal-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0; border-bottom: 1px solid #0d0d0d;
+  }
+  .sig-key { font-size: 7px; color: #444; letter-spacing: 1px; }
+  .sig-val { font-size: 9px; font-family: 'Orbitron', sans-serif; color: var(--gold); }
+  .sig-val.red    { color: var(--red-bright); }
+  .sig-val.green  { color: var(--green); }
+  .sig-val.cyan   { color: var(--cyan); }
+  .sig-val.purple { color: var(--purple); }
+
+  .freq-bars {
+    display: flex; align-items: flex-end; gap: 1px; height: 48px;
+  }
+  .freq-bar {
+    flex: 1; border-radius: 1px 1px 0 0;
+    transition: height 0.07s ease; min-height: 2px;
+  }
+
+  .stereo-wrap {
+    width: 100%; aspect-ratio: 1;
+    border: 1px solid #1a0000; border-radius: 50%;
+    position: relative; overflow: hidden; background: #050000;
+  }
+  .stereo-ring {
+    position: absolute; border: 1px solid #1a0000; border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+  .stereo-hline { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #1a0000; }
+  .stereo-vline { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #1a0000; }
+  #stereo-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .cam-btn {
+    font-family: 'Space Mono', monospace; font-size: 7px;
+    padding: 4px 8px; background: transparent;
+    border: 1px solid #1a0000; color: #440000;
+    cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s; width: 100%;
+  }
+  .cam-btn:hover, .cam-btn.active {
+    border-color: var(--red-bright); color: var(--red-bright);
+    background: rgba(139,0,0,0.2);
+  }
+
+  /* ── CENTER ── */
+  #center-area { flex: 1; position: relative; pointer-events: all; }
+
+  /* ── DROP ZONE ── */
+  #drop-zone {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.78);
+    backdrop-filter: blur(6px);
+    transition: opacity 0.5s;
+  }
+  .dz-title {
+    font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 900;
+    color: var(--red); text-shadow: 0 0 40px rgba(255,0,0,0.6);
+    letter-spacing: 6px; margin-bottom: 6px; text-align: center;
+  }
+  .dz-sub {
+    font-size: 9px; color: #444; letter-spacing: 4px; margin-bottom: 28px;
+  }
+  .dz-box {
+    width: 320px; height: 130px; border: 1px dashed var(--red);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; gap: 8px; transition: all 0.3s;
+  }
+  .dz-box:hover {
+    border-color: var(--red-bright); background: rgba(139,0,0,0.12);
+    box-shadow: 0 0 40px rgba(255,0,0,0.15);
+  }
+  .dz-icon { font-size: 32px; }
+  .dz-text { font-size: 9px; color: #555; letter-spacing: 2px; }
+  .dz-fmt  { font-size: 7px; color: #333; letter-spacing: 1px; }
+  .dz-credits {
+    margin-top: 24px; font-family: 'Orbitron', sans-serif;
+    font-size: 7px; color: rgba(201,162,39,0.4); letter-spacing: 5px;
+  }
+
+  /* ── PHASE WARNING ── */
+  #phase-warning {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    pointer-events: none; z-index: 25;
+    font-family: 'Orbitron', sans-serif; font-size: 13px;
+    color: var(--purple); letter-spacing: 4px; opacity: 0;
+    text-shadow: 0 0 25px var(--purple);
+    transition: opacity 0.3s;
+  }
+
+  /* ── BOTTOM BAR ── */
+  #bottom-bar {
+    pointer-events: all;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 5px 14px;
+    background: rgba(0,0,0,0.88);
+    border-top: 1px solid var(--red);
+    backdrop-filter: blur(10px);
+  }
+  .bottom-label { font-size: 7px; color: #333; letter-spacing: 2px; }
+  .status-msg   { font-size: 8px; color: #444; letter-spacing: 1px; margin-left: auto; }
+  .status-msg.live { color: var(--green); animation: blink 1.2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .brand-bottom {
+    font-family: 'Orbitron', sans-serif; font-size: 7px;
+    color: rgba(201,162,39,0.3); letter-spacing: 2px;
+  }
+
+  /* ── WASD HINT ── */
+  #wasd-hint {
+    position: fixed; bottom: 40px; right: 14px; z-index: 15;
+    font-size: 7px; color: #222; letter-spacing: 1px;
+    text-align: right; pointer-events: none; line-height: 1.8;
+    transition: color 0.3s;
+  }
+  #wasd-hint.active { color: rgba(201,162,39,0.5); }
+
+  /* ── TRACK INFO BADGE ── */
+  #track-badge {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); border: 1px solid #1a0000;
+    padding: 4px 14px; font-size: 8px; color: #555; letter-spacing: 2px;
+    pointer-events: none; z-index: 15; white-space: nowrap;
+    opacity: 0; transition: opacity 0.5s;
+  }
+
+  /* ── MISC ── */
+  #file-input { display: none; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #1a0000; border-radius: 2px; }
+
+  /* ── STORE DRAWER ── */
+  #store-drawer {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+    width: 680px; max-width: 100%;
+    background: rgba(0,0,0,0.97);
+    border: 1px solid var(--red);
+    border-bottom: none;
+    z-index: 50;
+    transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+    backdrop-filter: blur(16px);
+  }
+  #store-drawer.open { transform: translateX(-50%) translateY(0); }
+
+  #store-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid #1a0000;
+    cursor: pointer;
+  }
+  .store-title {
+    font-family: 'Orbitron', sans-serif; font-size: 10px;
+    color: var(--gold); letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(201,162,39,0.4);
+  }
+  .store-close {
+    font-size: 9px; color: #444; letter-spacing: 1px; cursor: pointer;
+    transition: color 0.2s;
+  }
+  .store-close:hover { color: var(--red-bright); }
+
+  #store-body {
+    padding: 14px 16px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .store-card {
+    border: 1px solid #1a0000;
+    padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .store-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .store-card:hover { border-color: var(--gold); background: rgba(201,162,39,0.04); }
+  .store-card:hover::before { opacity: 1; }
+
+  .sc-type {
+    font-size: 6px; color: #444; letter-spacing: 2px; text-transform: uppercase;
+  }
+  .sc-name {
+    font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+    color: #fff; letter-spacing: 1px; line-height: 1.3;
+  }
+  .sc-desc {
+    font-size: 7px; color: #555; line-height: 1.6; letter-spacing: 0.5px;
+  }
+  .sc-tags {
+    display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px;
+  }
+  .sc-tag {
+    font-size: 6px; color: var(--gold); border: 1px solid rgba(201,162,39,0.25);
+    padding: 1px 5px; letter-spacing: 1px;
+  }
+  .sc-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: auto; padding-top: 6px; border-top: 1px solid #0d0000;
+  }
+  .sc-price {
+    font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900;
+    color: var(--gold);
+  }
+  .sc-price.free { color: var(--green); }
+  .sc-btn {
+    font-family: 'Space Mono', monospace; font-size: 7px;
+    padding: 4px 10px; border: 1px solid; cursor: pointer;
+    letter-spacing: 1px; text-transform: uppercase; background: transparent;
+    text-decoration: none; display: inline-block;
+    transition: all 0.2s;
+  }
+  .sc-btn-gold { border-color: var(--gold); color: var(--gold); }
+  .sc-btn-gold:hover { background: rgba(201,162,39,0.15); }
+  .sc-btn-green { border-color: var(--green); color: var(--green); }
+  .sc-btn-green:hover { background: rgba(0,255,102,0.1); }
+  .sc-btn-red { border-color: var(--red-bright); color: var(--red-bright); }
+  .sc-btn-red:hover { background: rgba(255,51,51,0.1); }
+
+  .store-pixabay-row {
+    grid-column: 1 / -1;
+    border: 1px solid #1a0000;
+    padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .store-pixabay-row:hover { border-color: rgba(0,255,255,0.3); }
+  .pixabay-info { display: flex; flex-direction: column; gap: 3px; }
+  .pixabay-stats { display: flex; gap: 14px; }
+  .pxstat { display: flex; flex-direction: column; gap: 1px; }
+  .pxstat-val { font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--cyan); }
+  .pxstat-label { font-size: 6px; color: #444; letter-spacing: 1px; }
+
+  .btn-store {
+    font-family: 'Space Mono', monospace; font-size: 8px;
+    padding: 5px 10px; background: transparent;
+    border: 1px solid var(--gold); color: var(--gold);
+    cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .btn-store:hover { background: rgba(201,162,39,0.15); box-shadow: 0 0 10px rgba(201,162,39,0.2); }
+</style>
+</head>
+<body>
+
+<div id="canvas-container">
+  <canvas id="three-canvas"></canvas>
+</div>
+<div id="crt-overlay"></div>
+<div id="vignette"></div>
+
+<!-- ════════════════════════════════════════ UI LAYER -->
+<div id="ui-layer">
+
+  <!-- TOP BAR -->
+  <div id="top-bar">
+    <div class="brand-block">
+      <div class="logo-ah">AUDIO HOSPITAL</div>
+      <div class="logo-fo">✦ FREQUENCY OASIS</div>
+    </div>
+    <span class="sep">|</span>
+    <button class="btn btn-red" onclick="document.getElementById('file-input').click()">⬆ Upload Track</button>
+    <button class="btn btn-gold" id="btn-surgery" onclick="beginSurgery()">Begin Surgery</button>
+    <input type="file" id="file-input" accept="audio/*">
+
+    <div class="meters-group">
+      <div class="meter-unit">
+        <div class="meter-label">MIX HEALTH</div>
+        <div class="meter-bar"><div class="meter-fill mf-health" id="meter-health" style="width:0%"></div></div>
+      </div>
+      <div class="meter-unit">
+        <div class="meter-label">ST. WIDTH</div>
+        <div class="meter-bar"><div class="meter-fill mf-width" id="meter-width" style="width:0%"></div></div>
+      </div>
+      <div class="meter-unit">
+        <div class="meter-label">CPU</div>
+        <div class="meter-bar"><div class="meter-fill mf-cpu" id="meter-cpu" style="width:20%"></div></div>
+      </div>
+      <div class="meter-val" id="lufs-top">— LUFS</div>
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+
+    <!-- LEFT PANEL — TRAUMA SCAN -->
+    <div class="side-panel" id="left-panel">
+      <div class="panel-title">⚕ TRAUMA SCAN</div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Mud Buildup</span>
+          <span class="diag-pct df-red" id="val-mud">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-red" id="diag-mud" style="width:0%"></div></div>
+      </div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Phase Issues</span>
+          <span class="diag-pct" id="val-phase" style="color:var(--purple)">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-purple" id="diag-phase" style="width:0%"></div></div>
+      </div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Stereo Imbalance</span>
+          <span class="diag-pct" id="val-imbal" style="color:#ffaa00">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-yellow" id="diag-imbal" style="width:0%"></div></div>
+      </div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Harsh Frequencies</span>
+          <span class="diag-pct df-red" id="val-harsh">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-red" id="diag-harsh" style="width:0%"></div></div>
+      </div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Dynamic Collisions</span>
+          <span class="diag-pct" id="val-dyn" style="color:#ffaa00">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-yellow" id="diag-dyn" style="width:0%"></div></div>
+      </div>
+
+      <div class="diag-item">
+        <div class="diag-row">
+          <span class="diag-name">Low-End Congestion</span>
+          <span class="diag-pct df-red" id="val-low">0%</span>
+        </div>
+        <div class="diag-track"><div class="diag-fill df-red" id="diag-low" style="width:0%"></div></div>
+      </div>
+
+      <div style="border-top:1px solid #0d0000; padding-top:8px; margin-top:4px;">
+        <div class="panel-title" style="font-size:7px; margin-bottom:5px;">FREQ. BANDS</div>
+        <div class="freq-bars" id="freq-bars-left">
+          <div class="freq-bar" style="background:rgba(255,51,51,0.5); height:30%"></div>
+          <div class="freq-bar" style="background:rgba(255,51,51,0.4); height:25%"></div>
+          <div class="freq-bar" style="background:rgba(201,162,39,0.5); height:20%"></div>
+          <div class="freq-bar" style="background:rgba(201,162,39,0.4); height:15%"></div>
+          <div class="freq-bar" style="background:rgba(201,162,39,0.3); height:12%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.3); height:10%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.2); height:8%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.15); height:5%"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:2px;">
+          <span style="font-size:6px; color:#222">20Hz</span>
+          <span style="font-size:6px; color:#222">1kHz</span>
+          <span style="font-size:6px; color:#222">20kHz</span>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #0d0000; padding-top:8px; margin-top:auto;">
+        <div class="panel-title" style="font-size:7px; margin-bottom:5px;">CAMERA MODE</div>
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <button class="cam-btn active" onclick="setCamMode('surgeon',this)">Surgeon View</button>
+          <button class="cam-btn" onclick="setCamMode('ghost',this)">Ghost View</button>
+          <button class="cam-btn" onclick="setCamMode('stereo',this)">Stereo Field</button>
+          <button class="cam-btn" onclick="setCamMode('bass',this)">Bass Chamber</button>
+          <button class="cam-btn" onclick="setCamMode('vocal',this)">Vocal Isolation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div id="center-area">
+      <div id="drop-zone">
+        <div class="dz-title">SONIC OPERATING ROOM</div>
+        <div class="dz-sub">AUDIO HOSPITAL × FREQUENCY OASIS</div>
+        <div class="dz-box" onclick="document.getElementById('file-input').click()">
+          <div class="dz-icon">⚕</div>
+          <div class="dz-text">DROP AUDIO FILE OR CLICK TO UPLOAD</div>
+          <div class="dz-fmt">WAV · MP3 · FLAC · OGG · AAC</div>
+        </div>
+        <div class="dz-credits">WALK THROUGH YOUR MIX · v1.0</div>
+      </div>
+      <div id="phase-warning">⚠ PHASE COLLAPSE DETECTED ⚠</div>
+      <div id="track-badge">—</div>
+    </div>
+
+    <!-- RIGHT PANEL — PATIENT SIGNAL -->
+    <div class="side-panel" id="right-panel">
+      <div class="panel-title">◈ PATIENT SIGNAL</div>
+
+      <div class="signal-row">
+        <span class="sig-key">LUFS</span>
+        <span class="sig-val" id="sig-lufs">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">RMS</span>
+        <span class="sig-val" id="sig-rms">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">PEAK</span>
+        <span class="sig-val red" id="sig-peak">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">CORRELATION</span>
+        <span class="sig-val green" id="sig-corr">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">SPECTRAL CENT.</span>
+        <span class="sig-val cyan" id="sig-spec">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">CREST FACTOR</span>
+        <span class="sig-val" id="sig-crest">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">MID ENERGY</span>
+        <span class="sig-val" id="sig-mid">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">SIDE ENERGY</span>
+        <span class="sig-val" id="sig-side">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">SUB ENERGY</span>
+        <span class="sig-val red" id="sig-sub">—</span>
+      </div>
+      <div class="signal-row">
+        <span class="sig-key">AIR ENERGY</span>
+        <span class="sig-val cyan" id="sig-air">—</span>
+      </div>
+
+      <div style="border-top:1px solid #0d0000; padding-top:8px; margin-top:4px;">
+        <div class="panel-title" style="font-size:7px; margin-bottom:5px;">FREQ. DISTRIBUTION</div>
+        <div class="freq-bars" id="freq-bars-right" style="height:60px;">
+          <div class="freq-bar" style="background:rgba(255,51,51,0.6); height:60%"></div>
+          <div class="freq-bar" style="background:rgba(255,100,0,0.5); height:45%"></div>
+          <div class="freq-bar" style="background:rgba(201,162,39,0.5); height:35%"></div>
+          <div class="freq-bar" style="background:rgba(201,162,39,0.4); height:28%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.35); height:20%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.25); height:14%"></div>
+          <div class="freq-bar" style="background:rgba(0,255,255,0.2); height:9%"></div>
+          <div class="freq-bar" style="background:rgba(170,51,255,0.25); height:5%"></div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #0d0000; padding-top:8px; margin-top:4px;">
+        <div class="panel-title" style="font-size:7px; margin-bottom:5px;">STEREO FIELD</div>
+        <div class="stereo-wrap">
+          <div class="stereo-ring" style="width:70%; height:70%;"></div>
+          <div class="stereo-ring" style="width:40%; height:40%;"></div>
+          <div class="stereo-hline"></div>
+          <div class="stereo-vline"></div>
+          <canvas id="stereo-canvas"></canvas>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:3px;">
+          <span style="font-size:6px; color:#222">L</span>
+          <span style="font-size:6px; color:#333">M</span>
+          <span style="font-size:6px; color:#222">R</span>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #0d0000; padding-top:8px; margin-top:auto; display:flex; flex-direction:column; gap:4px;">
+        <div class="panel-title" style="font-size:7px; margin-bottom:2px;">CONTROLS</div>
+        <button class="btn btn-red" style="width:100%; font-size:7px;" onclick="togglePlayback()">⏯ PLAY / PAUSE</button>
+        <button class="btn btn-gold" style="width:100%; font-size:7px;" onclick="toggleWASD()">⊕ FREE ROAM (WASD)</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottom-bar">
+    <span class="bottom-label">WALK THROUGH YOUR MIX</span>
+    <span class="status-msg" id="status-msg">AWAITING PATIENT</span>
+    <button class="btn-store" style="margin-left:auto;" onclick="toggleStore()">✦ STORE</button>
+    <span class="brand-bottom">AUDIO HOSPITAL × FREQUENCY OASIS · v1.0</span>
+  </div>
+
+</div><!-- end ui-layer -->
+
+<!-- ════════════════════════════════════════ STORE DRAWER -->
+<div id="store-drawer">
+  <div id="store-header" onclick="toggleStore()">
+    <span class="store-title">✦ FREQUENCY OASIS · STORE</span>
+    <span class="store-close">CLOSE ✕</span>
+  </div>
+
+  <!-- BIO STRIP -->
+  <div style="padding:10px 16px; border-bottom:1px solid #0d0000; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div style="flex:1;">
+      <p style="font-size:8px; color:#666; line-height:1.7; letter-spacing:0.5px;">
+        Forged in Durban, sharpened in Pretoria, pressure-tested in Johannesburg. Built by Smokey Eye Beats.<br>
+        <span style="color:#444;">Sonic weapons, surgical VSTs, and raw textures engineered for creators who move with purpose.</span>
+      </p>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0;">
+      <span style="font-family:'Orbitron',sans-serif; font-size:7px; color:var(--red); letter-spacing:2px;">NO SOFTNESS. NO SHORTCUTS.</span>
+      <span style="font-size:7px; color:#333; letter-spacing:1px;">audiohospital@tutamail.com</span>
+    </div>
+  </div>
+
+  <div id="store-body">
+
+    <!-- MAIN STORE CARD -->
+    <div class="store-card" style="grid-column: 1 / -1; flex-direction:row; align-items:center; gap:20px; padding:16px 20px;">
+      <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+        <span class="sc-type">SURGICAL VSTS · SOUND DESIGN · SAMPLE PACKS</span>
+        <span class="sc-name" style="font-size:14px;">FREQUENCY OASIS CREATIONS</span>
+        <p class="sc-desc" style="font-size:8px; max-width:500px;">
+          Gorecoil · Drum Bus Doctor · Vocals Doctor · Cryogenic Bleed · and 53 more.<br>
+          Sonic weapons engineered for creators who move with purpose. No softness. No shortcuts.
+        </p>
+        <div class="sc-tags">
+          <span class="sc-tag">VST PLUGINS</span>
+          <span class="sc-tag">SAMPLE PACKS</span>
+          <span class="sc-tag">SOUND DESIGN</span>
+          <span class="sc-tag">57 PRODUCTS</span>
+          <span class="sc-tag">FROM FREE</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px; flex-shrink:0;">
+        <span style="font-family:'Orbitron',sans-serif; font-size:22px; font-weight:900; color:var(--gold); text-shadow:0 0 20px rgba(201,162,39,0.4);">57</span>
+        <span style="font-size:7px; color:#444; letter-spacing:2px;">PRODUCTS</span>
+        <a class="sc-btn sc-btn-gold" style="font-size:9px; padding:8px 20px; text-align:center;"
+           href="https://frequencyoasis.gumroad.com" target="_blank">BROWSE STORE →</a>
+      </div>
+    </div>
+
+    <!-- PIXABAY ROW -->
+    <div class="store-pixabay-row">
+      <div class="pixabay-info">
+        <span style="font-family:'Orbitron',sans-serif; font-size:9px; color:var(--cyan); letter-spacing:2px;">PIXABAY · FREE DOWNLOADS</span>
+        <span style="font-size:7px; color:#444; letter-spacing:1px; margin-top:2px;">Free music, sound design & audio — subscribe to unlock all downloads</span>
+      </div>
+      <div class="pixabay-stats">
+        <div class="pxstat">
+          <span class="pxstat-val">533K</span>
+          <span class="pxstat-label">VIEWS</span>
+        </div>
+        <div class="pxstat">
+          <span class="pxstat-val">18,283</span>
+          <span class="pxstat-label">DOWNLOADS</span>
+        </div>
+        <div class="pxstat">
+          <span class="pxstat-val">120</span>
+          <span class="pxstat-label">UPLOADS</span>
+        </div>
+        <div class="pxstat">
+          <span class="pxstat-val">118</span>
+          <span class="pxstat-label">LIKES</span>
+        </div>
+      </div>
+      <a class="sc-btn sc-btn-green" href="https://pixabay.com/users/frequencyoasis-38933177/" target="_blank">SUBSCRIBE + DOWNLOAD →</a>
+    </div>
+
+  </div>
+</div>
+
+<div id="wasd-hint">
+  W/S · FORWARD/BACK &nbsp;|&nbsp; A/D · STRAFE<br>
+  Q/E · UP/DOWN &nbsp;|&nbsp; MOUSE DRAG · LOOK<br>
+  Click FREE ROAM to activate
+</div>
+
+<!-- ════════════════════════════════════════ SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ============================================================
+// SONIC OPERATING ROOM — Full Engine
+// Audio Hospital × Frequency Oasis
+// ============================================================
+
+// ── State ──────────────────────────────────────────────────
+let scene, camera, renderer, clock;
+let audioCtx, analyserL, analyserR, sourceNode, audioBuffer;
+let dataArrayL, dataArrayR;
+const FFT_SIZE = 2048;
+
+let isPlaying = false, wasdActive = false;
+let camMode = 'surgeon';
+let keys = {}, isMouseDown = false, camYaw = 0, camPitch = 0;
+let cpuLoad = 20, lastFrameTime = performance.now();
+
+// 3D scene objects
+let fogParticles, laserLines = [];
+let kickObj, kickLight;
+let bassObj, bassLight;
+let snareObj, snareLight;
+let hatGroup, hatLight;
+let vocalObj, vocalLight;
+let padGroup;
+let melodyGroup, melodyLight;
+let subRingGroup;
+let scanRing;
+
+// Camera mode presets
+const CAM_MODES = {
+  surgeon: { pos: [0, 3.5, 11], look: [0, 1,  0]  },
+  ghost:   { pos: [0, 10, 0.1], look: [0, 0,  0]  },
+  stereo:  { pos: [0, 1,   7],  look: [0, 1,  0]  },
+  bass:    { pos: [0, -0.3, 5], look: [0, 0,  0]  },
+  vocal:   { pos: [0, 3,   4],  look: [0, 3.5,-3] },
+};
+
+// ── Init Three.js ───────────────────────────────────────────
+function initThree() {
+  const canvas    = document.getElementById('three-canvas');
+  const container = document.getElementById('canvas-container');
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x040004, 0.035);
+  scene.background = new THREE.Color(0x000000);
+  clock = new THREE.Clock();
+
+  const W = container.clientWidth, H = container.clientHeight;
+  camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 120);
+  camera.position.set(0, 3.5, 11);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(W, H);
+  renderer.shadowMap.enabled  = true;
+  renderer.shadowMap.type     = THREE.PCFSoftShadowMap;
+  renderer.toneMapping        = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.65;
+
+  buildRoom();
+  buildAudioObjects();
+  buildParticles();
+  buildLights();
+  buildLaserGrid();
+
+  // Events
+  window.addEventListener('resize', onResize);
+  document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (wasdActive && ['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','Space'].includes(e.code)) e.preventDefault();
+  });
+  document.addEventListener('keyup',   e => { keys[e.code] = false; });
+  const center = document.getElementById('center-area');
+  center.addEventListener('mousedown', () => { isMouseDown = true; });
+  center.addEventListener('mouseup',   () => { isMouseDown = false; });
+  center.addEventListener('mousemove', onMouseMove);
+  center.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Drag-drop
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = 'rgba(139,0,0,0.12)'; });
+  dz.addEventListener('dragleave', () => { dz.style.background = ''; });
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.style.background = '';
+    if (e.dataTransfer.files.length) loadAudioFile(e.dataTransfer.files[0]);
+  });
+
+  animate();
+}
+
+// ── Build Room ──────────────────────────────────────────────
+function buildRoom() {
+  // Floor — reflective black steel
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x040008, roughness: 0.04, metalness: 0.95 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -1;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Ceiling
+  const ceilMat = new THREE.MeshStandardMaterial({ color: 0x020002, roughness: 0.95 });
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), ceilMat);
+  ceil.rotation.x = Math.PI / 2; ceil.position.y = 9;
+  scene.add(ceil);
+
+  // Walls
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x080008, roughness: 0.75, metalness: 0.55 });
+  [
+    { pos:[0,4,-18], rot:[0,0,0] },
+    { pos:[0,4, 18], rot:[0,Math.PI,0] },
+    { pos:[-18,4,0], rot:[0, Math.PI/2,0] },
+    { pos:[ 18,4,0], rot:[0,-Math.PI/2,0] },
+  ].forEach(w => {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(36, 10), wallMat);
+    wall.position.set(...w.pos); wall.rotation.set(...w.rot);
+    scene.add(wall);
+  });
+
+  // Sub-bass floor distortion ring (animated)
+  subRingGroup = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1 + i * 1.5, 0.03, 4, 48),
+      new THREE.MeshStandardMaterial({ color: 0x880000, emissive: 0x440000, emissiveIntensity: 0.3, transparent: true, opacity: 0.3 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -0.95;
+    subRingGroup.add(ring);
+  }
+  scene.add(subRingGroup);
+
+  // Scan ring
+  scanRing = new THREE.Mesh(
+    new THREE.TorusGeometry(8, 0.02, 4, 64),
+    new THREE.MeshStandardMaterial({ color: 0x8b0000, emissive: 0x8b0000, emissiveIntensity: 1, transparent: true, opacity: 0.4 })
+  );
+  scanRing.rotation.x = -Math.PI / 2;
+  scanRing.position.y = 2;
+  scene.add(scanRing);
+}
+
+// ── Build Audio Objects ─────────────────────────────────────
+function buildAudioObjects() {
+
+  // ── KICK — pulsating icosahedron at center floor
+  const kickMat = new THREE.MeshStandardMaterial({
+    color: 0xcc0000, emissive: 0x880000, emissiveIntensity: 0.8,
+    roughness: 0.2, metalness: 0.9
+  });
+  kickObj = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 3), kickMat);
+  kickObj.position.set(0, -0.3, 0);
+  kickObj.castShadow = true;
+  scene.add(kickObj);
+  kickLight = new THREE.PointLight(0xff0000, 0, 8);
+  kickLight.position.copy(kickObj.position);
+  scene.add(kickLight);
+
+  // ── BASS — translucent sphere
+  const bassMat = new THREE.MeshStandardMaterial({
+    color: 0x220000, emissive: 0x110000, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.55, roughness: 0.9, metalness: 0.1, side: THREE.BackSide
+  });
+  bassObj = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16), bassMat);
+  bassObj.position.set(0, -0.7, 0);
+  scene.add(bassObj);
+  bassLight = new THREE.PointLight(0x660000, 0, 14);
+  bassLight.position.set(0, 0, 0);
+  scene.add(bassLight);
+
+  // ── SNARE — octahedron mid-height
+  const snareMat = new THREE.MeshStandardMaterial({
+    color: 0xcccccc, emissive: 0x666666, emissiveIntensity: 0,
+    roughness: 0.05, metalness: 1.0
+  });
+  snareObj = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), snareMat);
+  snareObj.position.set(0, 2, -1.5);
+  scene.add(snareObj);
+  snareLight = new THREE.PointLight(0xffffff, 0, 5);
+  snareLight.position.copy(snareObj.position);
+  scene.add(snareLight);
+
+  // ── HI-HATS — cluster of gold sparks
+  hatGroup = new THREE.Group();
+  for (let i = 0; i < 7; i++) {
+    const hMat = new THREE.MeshStandardMaterial({
+      color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.8, metalness: 1.0
+    });
+    const hm = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06 + Math.random()*0.06, 4, 4), hMat
+    );
+    hm.position.set((Math.random()-0.5)*1.8, 2 + Math.random()*0.8, (Math.random()-0.5)*0.6);
+    hatGroup.add(hm);
+  }
+  hatGroup.position.x = 2.5;
+  scene.add(hatGroup);
+  hatLight = new THREE.PointLight(0xffd700, 0, 4);
+  hatLight.position.set(2.5, 2.5, 0);
+  scene.add(hatLight);
+
+  // ── VOCAL — holographic plane
+  const vocalMat = new THREE.MeshStandardMaterial({
+    color: 0x00cccc, emissive: 0x009999, emissiveIntensity: 0,
+    transparent: true, opacity: 0.0, side: THREE.DoubleSide, roughness: 1.0
+  });
+  vocalObj = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.2), vocalMat);
+  vocalObj.position.set(0, 3.5, -4);
+  scene.add(vocalObj);
+  vocalLight = new THREE.PointLight(0x00ffff, 0, 10);
+  vocalLight.position.set(0, 3.5, -3);
+  scene.add(vocalLight);
+
+  // ── PADS — layered atmospheric spheres
+  padGroup = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const pMat = new THREE.MeshStandardMaterial({
+      color: 0x330033, emissive: 0x110011, emissiveIntensity: 0.2,
+      transparent: true, opacity: 0.06, side: THREE.BackSide
+    });
+    const pm = new THREE.Mesh(new THREE.SphereGeometry(2 + i * 0.7, 8, 8), pMat);
+    pm.position.set(0, 2.5, -6 - i * 0.5);
+    padGroup.add(pm);
+  }
+  scene.add(padGroup);
+
+  // ── MELODY — gold torus ribbons
+  melodyGroup = new THREE.Group();
+  const melColors = [0xc9a227, 0xffcc44, 0xffe066];
+  for (let i = 0; i < 3; i++) {
+    const mMat = new THREE.MeshStandardMaterial({
+      color: melColors[i], emissive: melColors[i], emissiveIntensity: 0.2,
+      metalness: 0.9, roughness: 0.15
+    });
+    const mm = new THREE.Mesh(new THREE.TorusGeometry(0.7 - i*0.15, 0.045, 4, 24), mMat);
+    mm.position.set(-2.5 + i*0.3, 3.5 + i*0.4, -3 - i*0.6);
+    mm.rotation.x = Math.PI/3 + i*0.2;
+    mm.rotation.y = i*0.5;
+    melodyGroup.add(mm);
+  }
+  scene.add(melodyGroup);
+  melodyLight = new THREE.PointLight(0xc9a227, 0, 8);
+  melodyLight.position.set(-2.5, 3.5, -3);
+  scene.add(melodyLight);
+}
+
+// ── Particles ────────────────────────────────────────────────
+function buildParticles() {
+  const count = 1200;
+  const geo   = new THREE.BufferGeometry();
+  const pos   = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    pos[i*3]   = (Math.random()-0.5) * 34;
+    pos[i*3+1] = Math.random() * 10 - 1;
+    pos[i*3+2] = (Math.random()-0.5) * 34;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  fogParticles = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.055, color: 0x330022, transparent: true, opacity: 0.45, sizeAttenuation: true
+  }));
+  scene.add(fogParticles);
+}
+
+// ── Lights ───────────────────────────────────────────────────
+function buildLights() {
+  scene.add(new THREE.AmbientLight(0x040004, 0.6));
+
+  const spot = new THREE.SpotLight(0x8b0000, 3, 22, Math.PI/3.5, 0.5);
+  spot.position.set(0, 8, 2);
+  spot.target.position.set(0, 0, 0);
+  spot.castShadow = true;
+  spot.shadow.mapSize.set(1024, 1024);
+  scene.add(spot); scene.add(spot.target);
+
+  const rim1 = new THREE.PointLight(0x6b0000, 0.7, 18);
+  rim1.position.set( 12, 5, 0); scene.add(rim1);
+  const rim2 = new THREE.PointLight(0x6b0000, 0.7, 18);
+  rim2.position.set(-12, 5, 0); scene.add(rim2);
+  const gold = new THREE.PointLight(0xc9a227, 0.4, 14);
+  gold.position.set(0, 7, -10); scene.add(gold);
+}
+
+// ── Laser Grid ───────────────────────────────────────────────
+function buildLaserGrid() {
+  const mat = new THREE.LineBasicMaterial({ color: 0x6b0000, transparent: true, opacity: 0.12 });
+  for (let z = -12; z <= 12; z += 2) {
+    const l = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-14,-0.96,z), new THREE.Vector3(14,-0.96,z)]), mat
+    );
+    laserLines.push(l); scene.add(l);
+  }
+  for (let x = -12; x <= 12; x += 2) {
+    const l = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,-0.96,-14), new THREE.Vector3(x,-0.96,14)]), mat
+    );
+    laserLines.push(l); scene.add(l);
+  }
+}
+
+// ── Audio Engine ─────────────────────────────────────────────
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+  analyserL = audioCtx.createAnalyser();
+  analyserR = audioCtx.createAnalyser();
+  [analyserL, analyserR].forEach(a => {
+    a.fftSize = FFT_SIZE;
+    a.smoothingTimeConstant = 0.82;
+  });
+  dataArrayL = new Float32Array(analyserL.frequencyBinCount);
+  dataArrayR = new Float32Array(analyserR.frequencyBinCount);
+}
+
+function loadAudioFile(file) {
+  initAudio();
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      audioBuffer = await audioCtx.decodeAudioData(e.target.result);
+      document.getElementById('drop-zone').style.opacity = '0';
+      setTimeout(() => { document.getElementById('drop-zone').style.display = 'none'; }, 500);
+      const badge = document.getElementById('track-badge');
+      badge.textContent = file.name.replace(/\.[^/.]+$/, '').toUpperCase();
+      badge.style.opacity = '1';
+      setStatus('TRACK LOADED — HIT BEGIN SURGERY', 'live');
+    } catch(e) { setStatus('DECODE ERROR — TRY ANOTHER FILE', ''); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function beginSurgery() {
+  if (!audioBuffer) { document.getElementById('file-input').click(); return; }
+  isPlaying ? stopPlayback() : startPlayback();
+}
+function togglePlayback() { isPlaying ? stopPlayback() : startPlayback(); }
+
+function startPlayback() {
+  if (!audioBuffer || isPlaying) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = audioBuffer;
+  sourceNode.loop = true;
+
+  const splitter = audioCtx.createChannelSplitter(2);
+  const merger   = audioCtx.createChannelMerger(2);
+  sourceNode.connect(splitter);
+  splitter.connect(analyserL, 0);
+  splitter.connect(analyserR, 1);
+  splitter.connect(merger, 0, 0);
+  splitter.connect(merger, 1, 1);
+  merger.connect(audioCtx.destination);
+  sourceNode.start(0);
+
+  isPlaying = true;
+  document.getElementById('btn-surgery').textContent = '⬛ Halt Surgery';
+  document.getElementById('btn-surgery').classList.add('btn-active');
+  setStatus('SURGERY IN PROGRESS', 'live');
+}
+
+function stopPlayback() {
+  if (sourceNode) { try { sourceNode.stop(); } catch(e){} sourceNode.disconnect(); sourceNode = null; }
+  isPlaying = false;
+  document.getElementById('btn-surgery').textContent = 'Begin Surgery';
+  document.getElementById('btn-surgery').classList.remove('btn-active');
+  setStatus('SURGERY HALTED', '');
+}
+
+// ── Analysis ─────────────────────────────────────────────────
+function binFor(freq) { return Math.round(freq / (audioCtx.sampleRate / FFT_SIZE)); }
+
+function bandEnergy(data, lo, hi) {
+  let sum = 0;
+  for (let i = lo; i < hi && i < data.length; i++) {
+    sum += Math.max(0, (data[i] + 140) / 140);
+  }
+  return sum / Math.max(1, hi - lo);
+}
+
+function analyzeAndUpdate() {
+  if (!isPlaying || !analyserL) return;
+
+  analyserL.getFloatFrequencyData(dataArrayL);
+  analyserR.getFloatFrequencyData(dataArrayR);
+
+  const bSub  = binFor(80),   bBass = binFor(250),
+        bMidL = binFor(500),  bMid  = binFor(2000),
+        bHigh = binFor(8000), bAir  = binFor(16000),
+        bMax  = dataArrayL.length;
+
+  const eSubL  = bandEnergy(dataArrayL, 1,     bSub);
+  const eBassL = bandEnergy(dataArrayL, bSub,  bBass);
+  const eMidL  = bandEnergy(dataArrayL, bMidL, bMid);
+  const eHighL = bandEnergy(dataArrayL, bMid,  bHigh);
+  const eAirL  = bandEnergy(dataArrayL, bHigh, bAir);
+
+  const eBassR = bandEnergy(dataArrayR, bSub,  bBass);
+  const eMidR  = bandEnergy(dataArrayR, bMidL, bMid);
+
+  // Stereo correlation
+  let cNum = 0, cDen = 0;
+  for (let i = 0; i < dataArrayL.length; i++) {
+    const l = (dataArrayL[i]+140)/140, r = (dataArrayR[i]+140)/140;
+    cNum += l*r; cDen += (l*l + r*r)*0.5;
+  }
+  const correlation = cDen > 0 ? Math.max(-1, Math.min(1, cNum/cDen)) : 0;
+  const stereoWidth  = 1 - Math.abs(correlation);
+
+  // RMS
+  let rmsAcc = 0;
+  for (let i = 0; i < dataArrayL.length; i++) {
+    const v = (dataArrayL[i]+140)/140;
+    rmsAcc += v*v;
+  }
+  const rms = Math.sqrt(rmsAcc / dataArrayL.length);
+
+  // Peak
+  let peak = -Infinity;
+  for (let i = 0; i < dataArrayL.length; i++) peak = Math.max(peak, dataArrayL[i]);
+
+  // Spectral centroid
+  let scNum = 0, scDen = 0;
+  for (let i = 0; i < dataArrayL.length; i++) {
+    const a = Math.pow(10, dataArrayL[i]/20);
+    scNum += i*a; scDen += a;
+  }
+  const sc = scDen > 0 ? (scNum/scDen) * ((audioCtx.sampleRate/2) / dataArrayL.length) : 0;
+
+  const lufs    = Math.max(-60, Math.min(0, peak));
+  const rmsDb   = Math.round(20 * Math.log10(Math.max(0.0001, rms)));
+  const crest   = rmsDb - Math.round(peak);
+  const panDiff = (eBassR - eBassL) * 3;
+
+  // ── UPDATE 3D OBJECTS ──────────────────────────────────────
+
+  const t = Date.now() * 0.001;
+
+  // KICK
+  const kickPow = 1 + eSubL * 3.5;
+  kickObj.scale.setScalar(kickPow);
+  kickObj.material.emissiveIntensity = eSubL * 5;
+  kickLight.intensity = eSubL * 10;
+  kickObj.rotation.y += 0.008 + eSubL * 0.05;
+
+  // BASS sphere
+  bassObj.scale.setScalar(1 + (eSubL + eBassL) * 1.8);
+  bassObj.material.opacity = 0.25 + eBassL * 0.5;
+  bassLight.intensity = eBassL * 6;
+
+  // Sub rings
+  subRingGroup.children.forEach((ring, i) => {
+    ring.scale.setScalar(1 + eSubL * (2 - i*0.3));
+    ring.material.opacity = (0.15 + eSubL * 0.5) * (1 - i*0.2);
+  });
+
+  // SNARE
+  const snareE = (eMidL + eHighL) * 0.55;
+  snareObj.scale.setScalar(0.6 + snareE * 2.5);
+  snareObj.material.emissiveIntensity = snareE * 4;
+  snareLight.intensity = snareE * 7;
+  snareObj.rotation.x += 0.02 + snareE * 0.12;
+  snareObj.rotation.z += 0.015;
+  snareObj.position.x += (panDiff*0.8 - snareObj.position.x) * 0.06;
+
+  // HI-HATS
+  const hatE = eAirL + eHighL * 0.4;
+  hatGroup.children.forEach((h, i) => {
+    h.material.emissiveIntensity = hatE * 5;
+    h.position.x = (Math.sin(t*8 + i*1.2) * 0.5) * (0.8 + hatE*2.5);
+    h.position.y = 2 + Math.cos(t*6 + i*0.9) * 0.4 * (1 + hatE*2);
+  });
+  hatGroup.userData.xTarget = panDiff * 2.5;
+  hatGroup.position.x += ((2.5 + panDiff*1.5) - hatGroup.position.x) * 0.05;
+  hatLight.intensity = hatE * 5;
+
+  // VOCAL
+  vocalObj.material.opacity = Math.min(0.85, eMidL * 1.5);
+  vocalObj.material.emissiveIntensity = eMidL * 2.5;
+  vocalLight.intensity = eMidL * 6;
+  vocalObj.scale.x = 1 + stereoWidth * 2.5;
+  vocalObj.position.y = 3.5 + Math.sin(t*0.8) * 0.25;
+
+  // PADS
+  padGroup.children.forEach((p, i) => {
+    p.material.opacity = 0.04 + eMidL * 0.1 * (1 - i*0.015);
+    p.position.y = 2 + i*0.3 + Math.sin(t*0.4 + i) * 0.4;
+  });
+
+  // MELODY
+  melodyGroup.children.forEach((m, i) => {
+    m.rotation.z += 0.006 + eHighL * 0.025;
+    m.rotation.x += 0.003 + eAirL * 0.01;
+    m.material.emissiveIntensity = 0.15 + eHighL * 2;
+    m.position.x = -2.5 + i*0.3 + Math.sin(t*0.6 + i) * stereoWidth * 0.8;
+  });
+  melodyLight.intensity = eHighL * 5;
+
+  // SCAN RING
+  scanRing.position.y = 2 + Math.sin(t*0.3) * 0.5;
+  scanRing.material.opacity = 0.15 + eSubL * 0.5;
+
+  // PHASE WARNING
+  const phaseIssue = Math.max(0, -correlation * 0.5);
+  const pw = document.getElementById('phase-warning');
+  if (phaseIssue > 0.25) {
+    pw.style.opacity = Math.min(1, phaseIssue * 2.2);
+    if (Math.random() < 0.25) scene.position.x = (Math.random()-0.5) * 0.06 * phaseIssue;
+  } else {
+    pw.style.opacity = 0;
+    scene.position.x *= 0.85;
+  }
+
+  // FOG COLOR — mix health
+  const mud   = eBassL + bandEnergy(dataArrayL, bBass, bMidL);
+  const health = Math.max(0, 1 - mud * 1.2);
+  scene.fog.color.setRGB(0.015 + mud*0.06, health*0.004, mud*0.025);
+
+  // PARTICLES
+  const pPos = fogParticles.geometry.attributes.position;
+  for (let i = 0; i < 300; i++) {
+    pPos.array[i*3+1] += 0.002 + eSubL * 0.012;
+    if (pPos.array[i*3+1] > 9) pPos.array[i*3+1] = -1;
+    pPos.array[i*3]   += Math.sin(t + i*0.1) * 0.003;
+  }
+  pPos.needsUpdate = true;
+
+  // LASER FLICKER
+  laserLines.forEach((l, i) => {
+    l.material.opacity = 0.06 + eSubL * 0.25 + Math.sin(t*1.5 + i*0.4) * 0.04;
+  });
+
+  // ── UPDATE PANELS ─────────────────────────────────────────
+  document.getElementById('sig-lufs').textContent  = Math.round(lufs)  + ' dBFS';
+  document.getElementById('sig-rms').textContent   = rmsDb + ' dBFS';
+  document.getElementById('sig-peak').textContent  = Math.round(peak)  + ' dBFS';
+  document.getElementById('sig-corr').textContent  = correlation.toFixed(2);
+  document.getElementById('sig-spec').textContent  = Math.round(sc)    + ' Hz';
+  document.getElementById('sig-crest').textContent = crest.toFixed(1)  + ' dB';
+  document.getElementById('sig-mid').textContent   = Math.round(eMidL  * 100) + '%';
+  document.getElementById('sig-side').textContent  = Math.round(stereoWidth * 100) + '%';
+  document.getElementById('sig-sub').textContent   = Math.round(eSubL  * 100) + '%';
+  document.getElementById('sig-air').textContent   = Math.round(eAirL  * 100) + '%';
+  document.getElementById('lufs-top').textContent  = Math.round(lufs)  + ' LUFS';
+
+  // METERS
+  document.getElementById('meter-health').style.width = (health * 100).toFixed(1) + '%';
+  document.getElementById('meter-width').style.width  = (stereoWidth * 100).toFixed(1) + '%';
+
+  // TRAUMA SCAN
+  setDiag('mud',   Math.min(100, Math.round((mud) * 75)));
+  setDiag('phase', Math.min(100, Math.round(phaseIssue * 220)));
+  setDiag('imbal', Math.min(100, Math.round(Math.abs(eBassL - eBassR) * 350)));
+  setDiag('harsh', Math.min(100, Math.round(eHighL * 130)));
+  setDiag('dyn',   Math.min(100, Math.round(Math.abs(crest) * 3.5)));
+  setDiag('low',   Math.min(100, Math.round(eSubL  * 130)));
+
+  updateFreqBars(dataArrayL, 'freq-bars-left', true);
+  updateFreqBars(dataArrayL, 'freq-bars-right', false);
+  updateStereoField();
+
+  // CPU
+  const now = performance.now();
+  const ft  = now - lastFrameTime;
+  lastFrameTime = now;
+  cpuLoad = cpuLoad * 0.7 + Math.min(100, (ft / 16.67) * 60) * 0.3;
+  document.getElementById('meter-cpu').style.width = cpuLoad.toFixed(1) + '%';
+}
+
+function setDiag(id, val) {
+  document.getElementById('diag-'+id).style.width = val + '%';
+  document.getElementById('val-'+id).textContent   = val + '%';
+}
+
+function updateFreqBars(data, containerId, isLeft) {
+  const bars = document.getElementById(containerId).querySelectorAll('.freq-bar');
+  const step = Math.floor(data.length / bars.length);
+  const colors = isLeft
+    ? ['rgba(255,51,51,0.7)','rgba(255,80,0,0.6)','rgba(201,162,39,0.6)','rgba(201,162,39,0.5)',
+       'rgba(0,200,200,0.5)','rgba(0,200,200,0.4)','rgba(170,51,255,0.4)','rgba(170,51,255,0.3)']
+    : ['rgba(255,51,51,0.6)','rgba(255,80,0,0.5)','rgba(201,162,39,0.55)','rgba(201,162,39,0.45)',
+       'rgba(0,210,210,0.45)','rgba(0,210,210,0.35)','rgba(170,51,255,0.35)','rgba(170,51,255,0.25)'];
+  bars.forEach((bar, i) => {
+    let avg = 0;
+    for (let b = i*step; b < (i+1)*step && b < data.length; b++) avg += (data[b]+140)/140;
+    avg /= step;
+    bar.style.height = Math.max(2, Math.min(100, avg * 100)) + '%';
+    bar.style.background = colors[i] || colors[colors.length-1];
+  });
+}
+
+function updateStereoField() {
+  const canvas = document.getElementById('stereo-canvas');
+  const W = canvas.width  = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  const cx = W/2, cy = H/2;
+  const step = Math.floor(dataArrayL.length / 100);
+  for (let i = 0; i < 100; i++) {
+    const b  = i * step;
+    const lv = (dataArrayL[b]+140)/140 * cy * 0.85;
+    const rv = (dataArrayR[b]+140)/140 * cy * 0.85;
+    const x  = cx + (rv - lv);
+    const y  = cy - (lv + rv) * 0.5;
+    const alpha = 0.2 + (lv+rv) * 0.08;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(201,162,39,${alpha})`;
+    ctx.fill();
+  }
+}
+
+// ── Camera Controls ──────────────────────────────────────────
+function onMouseMove(e) {
+  if (!wasdActive || !isMouseDown) return;
+  camYaw   -= e.movementX * 0.003;
+  camPitch -= e.movementY * 0.003;
+  camPitch = Math.max(-1.3, Math.min(1.3, camPitch));
+}
+
+function updateCamera(dt) {
+  if (wasdActive) {
+    const speed = 6 * dt;
+    const fwd   = new THREE.Vector3(-Math.sin(camYaw)*Math.cos(camPitch), Math.sin(camPitch), -Math.cos(camYaw)*Math.cos(camPitch));
+    const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+    if (keys['KeyW']) camera.position.addScaledVector(fwd,  speed);
+    if (keys['KeyS']) camera.position.addScaledVector(fwd, -speed);
+    if (keys['KeyA']) camera.position.addScaledVector(right,-speed);
+    if (keys['KeyD']) camera.position.addScaledVector(right, speed);
+    if (keys['KeyQ'] || keys['ShiftLeft']) camera.position.y -= speed;
+    if (keys['KeyE'] || keys['Space'])     camera.position.y += speed;
+    camera.position.y = Math.max(-0.8, camera.position.y);
+    camera.lookAt(camera.position.clone().add(fwd));
+  } else {
+    const m = CAM_MODES[camMode];
+    camera.position.lerp(new THREE.Vector3(...m.pos), 0.025);
+    camera.position.x += Math.sin(Date.now()*0.00025) * 0.004;
+    camera.position.y += Math.cos(Date.now()*0.0003)  * 0.002;
+    camera.lookAt(new THREE.Vector3(...m.look));
+  }
+}
+
+function setCamMode(mode, btn) {
+  camMode    = mode;
+  wasdActive = false;
+  document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('wasd-hint').classList.remove('active');
+}
+
+function toggleWASD() {
+  wasdActive = !wasdActive;
+  const hint = document.getElementById('wasd-hint');
+  hint.classList.toggle('active', wasdActive);
+  setStatus(wasdActive ? 'FREE ROAM — WALK THROUGH YOUR MIX' : 'ORBIT MODE', wasdActive ? 'live' : '');
+}
+
+// ── Animate Loop ─────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t  = Date.now() * 0.001;
+
+  analyzeAndUpdate();
+
+  // Passive idle animations
+  if (!isPlaying) {
+    kickObj.rotation.y    += 0.008;
+    kickObj.material.emissiveIntensity = 0.4 + Math.sin(t*1.8)*0.3;
+    kickLight.intensity   = 0.4 + Math.sin(t*2)*0.3;
+    bassObj.scale.setScalar(1 + Math.sin(t*0.7)*0.08);
+    snareObj.rotation.y   += 0.01;
+    hatGroup.children.forEach((h,i) => { h.position.y = 2 + Math.sin(t*3+i)*0.12; });
+    melodyGroup.children.forEach(m  => { m.rotation.z += 0.005; });
+    laserLines.forEach((l,i) => { l.material.opacity = 0.06 + Math.sin(t*0.8+i*0.3)*0.03; });
+
+    const pPos = fogParticles.geometry.attributes.position;
+    for (let i = 0; i < 80; i++) {
+      pPos.array[i*3+1] += 0.001;
+      if (pPos.array[i*3+1] > 9) pPos.array[i*3+1] = -1;
+    }
+    pPos.needsUpdate = true;
+  }
+
+  updateCamera(dt);
+  renderer.render(scene, camera);
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function setStatus(msg, cls) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg' + (cls ? ' ' + cls : '');
+}
+
+function onResize() {
+  const c = document.getElementById('canvas-container');
+  camera.aspect = c.clientWidth / c.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(c.clientWidth, c.clientHeight);
+}
+
+// ── File Input ────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files.length) loadAudioFile(e.target.files[0]);
+});
+
+// ── Store Drawer ──────────────────────────────────────────────
+function toggleStore() {
+  document.getElementById('store-drawer').classList.toggle('open');
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+window.addEventListener('load', initThree);
+</script>
+</body>
+</html>
