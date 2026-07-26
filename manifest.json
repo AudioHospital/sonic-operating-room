@@ -1,8 +1,8 @@
 {
-  "name": "Audio Hospital \u2014 Loudness Trauma Unit",
-  "short_name": "Audio Hospital",
-  "id": "/audio-hospital/",
-  "description": "Frequency Oasis \u00d7 Audio Hospital \u2014 surgical loudness mastering in your browser.",
+  "name": "Sonic Operating Room \u2014 Audio Hospital \u00d7 Frequency Oasis",
+  "short_name": "Sonic OR",
+  "id": "/sonic-operating-room/",
+  "description": "Frequency Oasis \u00d7 Audio Hospital \u2014 3D real-time mix diagnostics operating room.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
