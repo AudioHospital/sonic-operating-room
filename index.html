@@ -421,6 +421,88 @@
     transition: all 0.2s;
   }
   .btn-store:hover { background: rgba(201,162,39,0.15); box-shadow: 0 0 10px rgba(201,162,39,0.2); }
+
+  .store-main-card { flex-direction: row; }
+
+  /* ══════════════════════════════════════════════════════════
+     MOBILE / SMALL SCREEN LAYOUT
+     Everything above assumes a wide desktop viewport (fixed
+     210px side panels + a flexible center column all fighting
+     for space on the same row). Below ~860px that row simply
+     doesn't fit, which is why things overlap on a phone.
+     Here we switch to a stacked, scrollable layout instead.
+     ══════════════════════════════════════════════════════════ */
+  @media (max-width: 860px) {
+
+    html, body {
+      overflow-y: auto;
+      overflow-x: hidden;
+      height: auto;
+    }
+
+    /* keep the 3D scene fixed as a backdrop, let the UI scroll over it */
+    #canvas-container { position: fixed; }
+
+    #ui-layer {
+      position: relative;
+      inset: auto;
+      min-height: 100vh;
+      height: auto;
+    }
+
+    #top-bar {
+      position: sticky; top: 0; z-index: 30;
+      justify-content: center;
+    }
+    .meters-group { margin-left: 0; width: 100%; justify-content: center; }
+    .btn { padding: 8px 14px; font-size: 10px; } /* bigger tap targets */
+
+    #main-area {
+      flex-direction: column;
+      overflow: visible;
+      height: auto;
+    }
+
+    /* Show the 3D room / upload area first, panels below it */
+    #center-area {
+      order: -1;
+      flex: none;
+      width: 100%;
+      height: 62vh;
+      min-height: 340px;
+    }
+
+    .side-panel {
+      width: 100%;
+      max-height: none;
+      overflow-y: visible;
+      border-right: none !important;
+      border-left: none !important;
+      border-bottom: 1px solid var(--red);
+      padding: 14px 16px;
+    }
+    /* slightly larger, more readable text on mobile panels */
+    .diag-name, .sig-key { font-size: 9px; }
+    .diag-pct, .sig-val  { font-size: 10px; }
+    .panel-title { font-size: 9px; }
+    .cam-btn { font-size: 9px; padding: 8px; }
+
+    .dz-title { font-size: 16px; letter-spacing: 3px; padding: 0 10px; text-align: center; }
+    .dz-sub   { font-size: 7px; letter-spacing: 2px; text-align: center; padding: 0 10px; }
+    .dz-box   { width: 88vw; max-width: 320px; height: 120px; }
+
+    #bottom-bar { justify-content: center; text-align: center; }
+    .status-msg, .brand-bottom { margin-left: 0; }
+    #bottom-bar > * { flex: 1 1 auto; text-align: center; }
+
+    #wasd-hint { display: none; } /* keyboard hint is meaningless on touch */
+
+    #store-drawer { width: 100%; left: 0; transform: translateY(100%); }
+    #store-drawer.open { transform: translateY(0); }
+    #store-body { grid-template-columns: 1fr; }
+    .store-main-card { flex-direction: column; align-items: flex-start !important; }
+    .store-pixabay-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -682,7 +764,7 @@
   <div id="store-body">
 
     <!-- MAIN STORE CARD -->
-    <div class="store-card" style="grid-column: 1 / -1; flex-direction:row; align-items:center; gap:20px; padding:16px 20px;">
+    <div class="store-card store-main-card" style="grid-column: 1 / -1; align-items:center; gap:20px; padding:16px 20px;">
       <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
         <span class="sc-type">SURGICAL VSTS · SOUND DESIGN · SAMPLE PACKS</span>
         <span class="sc-name" style="font-size:14px;">FREQUENCY OASIS CREATIONS</span>
